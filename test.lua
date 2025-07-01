@@ -510,31 +510,55 @@ local function PathFinding(generator)
 end
 
 local function DoAllGenerators()
+	local player = game.Players.LocalPlayer
+
 	for _, g in ipairs(findGenerators()) do
+		-- Go invisible before moving to the generator
+		BecomeInvisible(player)
+		-- Move to generator (pathfinding, teleport, etc.)
+		PathFinding(g)
+		-- Become visible before interacting with the generator
+		BecomeVisible(player)
+		-- Interact with the generator
 		local pathStarted = false
 		for attempt = 1, 3 do
-			-- dont need cuz im sigma mafiza boy
-			-- local playersNearby = false
-			-- for _, player in ipairs(Players:GetPlayers()) do
-			-- 	if player ~= Players.LocalPlayer and player:DistanceFromCharacter(g:GetPivot().Position) <= 25 then
-			-- 		playersNearby = true
-			-- 		break
-			-- 	end
-			-- end
-
 			if (Players.LocalPlayer.Character:GetPivot().Position - g:GetPivot().Position).Magnitude > 500 then
 				break
 			end
 
-			-- if not playersNearby and g:FindFirstChild("Progress") and g.Progress.Value < 100 then
-			-- g:GetPivot()
-			-- end
-
 			pathStarted = PathFinding(g)
 			if pathStarted then
-				break
+				task.wait(0.5)
+				local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
+				if prompt then
+					fireproximityprompt(prompt)
+					task.wait(0.5)
+					if not InGenerator() then
+						local positions = {
+							g:GetPivot().Position - g:GetPivot().RightVector * 3,
+							g:GetPivot().Position + g:GetPivot().RightVector * 3,
+						}
+						for i, pos in ipairs(positions) do
+							print("Trying position", i)
+							Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+							task.wait(0.25)
+							fireproximityprompt(prompt)
+							if InGenerator() then
+								break
+							end
+						end
+					end
+				end
+				for i = 1, 6 do
+					if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
+						g.Remotes.RE:FireServer()
+					end
+					if i < 6 and g.Progress.Value < 100 then
+						task.wait(GenTime)
+					end
+				end
 			else
-				task.wait(1)
+				return
 			end
 		end
 		if pathStarted then
@@ -570,6 +594,8 @@ local function DoAllGenerators()
 		else
 			return
 		end
+		-- After finishing, go invisible again
+		BecomeInvisible(player)
 	end
 	SendWebhook(
 		"Generator Autofarm thing",
@@ -676,3 +702,126 @@ pcall(function()
 end)
 
 SetSpeed(desiredSprintMultiplier)
+
+local invisRunning = false
+local IsInvis = false
+local invisFix, invisDied
+local InvisibleCharacter, Character
+
+function BecomeInvisible(Player)
+    if invisRunning then return end
+    invisRunning = true
+    Player = Player or game.Players.LocalPlayer
+    repeat wait(.1) until Player.Character
+    Character = Player.Character
+    Character.Archivable = true
+    IsInvis = false
+    local Lighting = game:GetService("Lighting")
+    InvisibleCharacter = Character:Clone()
+    InvisibleCharacter.Parent = Lighting
+    local Void = workspace.FallenPartsDestroyHeight
+    InvisibleCharacter.Name = ""
+    local CF
+
+    invisFix = game:GetService("RunService").Stepped:Connect(function()
+        pcall(function()
+            local IsInteger
+            if tostring(Void):find'-' then
+                IsInteger = true
+            else
+                IsInteger = false
+            end
+            local Pos = Player.Character.HumanoidRootPart.Position
+            local Pos_String = tostring(Pos)
+            local Pos_Seperate = Pos_String:split(', ')
+            local X = tonumber(Pos_Seperate[1])
+            local Y = tonumber(Pos_Seperate[2])
+            local Z = tonumber(Pos_Seperate[3])
+            if IsInteger == true then
+                if Y <= Void then
+                    Respawn()
+                end
+            elseif IsInteger == false then
+                if Y >= Void then
+                    Respawn()
+                end
+            end
+        end)
+    end)
+
+    for i,v in pairs(InvisibleCharacter:GetDescendants())do
+        if v:IsA("BasePart") then
+            if v.Name == "HumanoidRootPart" then
+                v.Transparency = 1
+            else
+                v.Transparency = .5
+            end
+        end
+    end
+
+    function Respawn()
+        if IsInvis == true then
+            pcall(function()
+                Player.Character = Character
+                wait()
+                Character.Parent = workspace
+                Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+                IsInvis = false
+                InvisibleCharacter.Parent = nil
+                invisRunning = false
+            end)
+        elseif IsInvis == false then
+            pcall(function()
+                Player.Character = Character
+                wait()
+                Character.Parent = workspace
+                Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+                BecomeVisible(Player)
+            end)
+        end
+    end
+
+    invisDied = InvisibleCharacter:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
+        Respawn()
+        invisDied:Disconnect()
+    end)
+
+    if IsInvis == true then return end
+    IsInvis = true
+    CF = workspace.CurrentCamera.CFrame
+    local CF_1 = Player.Character.HumanoidRootPart.CFrame
+    Character:MoveTo(Vector3.new(0,math.pi*1000000,0))
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+    wait(.2)
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+    InvisibleCharacter = InvisibleCharacter
+    Character.Parent = Lighting
+    InvisibleCharacter.Parent = workspace
+    InvisibleCharacter.HumanoidRootPart.CFrame = CF_1
+    Player.Character = InvisibleCharacter
+    -- Optionally fix camera here
+    Player.Character.Animate.Disabled = true
+    Player.Character.Animate.Disabled = false
+end
+
+function BecomeVisible(Player)
+    if IsInvis == false then return end
+    invisFix:Disconnect()
+    invisDied:Disconnect()
+    Player = Player or game.Players.LocalPlayer
+    local CF = workspace.CurrentCamera.CFrame
+    Character = Character
+    local CF_1 = Player.Character.HumanoidRootPart.CFrame
+    Character.HumanoidRootPart.CFrame = CF_1
+    InvisibleCharacter:Destroy()
+    Player.Character = Character
+    Character.Parent = workspace
+    IsInvis = false
+    Player.Character.Animate.Disabled = true
+    Player.Character.Animate.Disabled = false
+    invisDied = Character:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
+        Respawn()
+        invisDied:Disconnect()
+    end)
+    invisRunning = false
+end
