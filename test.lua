@@ -533,8 +533,11 @@ local function DoAllGenerators()
 			task.wait(0.5)
 			local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
 			if prompt then
+				print("Prompt found! Prompt.Enabled:", prompt.Enabled)
 				local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
 				local genPivot = g:GetPivot()
+				print("Player position:", rootPart.Position)
+				print("Generator position:", genPivot.Position)
 				local directions = {
 					genPivot.LookVector,
 					-genPivot.LookVector,
@@ -544,6 +547,8 @@ local function DoAllGenerators()
 				local alreadyClose = false
 				for _, dir in ipairs(directions) do
 					local checkPos = genPivot.Position + dir * 3
+					print("Checking distance to:", checkPos)
+					print("Distance:", (rootPart.Position - checkPos).Magnitude)
 					if (rootPart.Position - checkPos).Magnitude <= 3 then
 						alreadyClose = true
 						break
@@ -553,10 +558,11 @@ local function DoAllGenerators()
 					print("Already close to generator, firing prompt...")
 					for i = 1, 3 do
 						fireproximityprompt(prompt)
+						print("Fired proximity prompt, attempt", i)
 						task.wait(0.2)
 					end
 				else
-					-- Try up to 4 positions around the generator
+					print("Not close, trying positions around generator...")
 					local positions = {
 						genPivot.Position + genPivot.LookVector * 3,
 						genPivot.Position - genPivot.LookVector * 3,
@@ -565,28 +571,33 @@ local function DoAllGenerators()
 					}
 					local found = false
 					for i, pos in ipairs(positions) do
+						print("Moving to position", i, pos)
 						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
 						task.wait(0.3)
 						for j = 1, 3 do
 							fireproximityprompt(prompt)
+							print("Fired proximity prompt at position", i, "attempt", j)
 							task.wait(0.2)
 						end
-						-- Optionally, check if prompt.Enabled is false (meaning it was triggered)
 						if not prompt.Enabled then
+							print("Prompt is now disabled, assuming success.")
 							found = true
 							break
 						end
 					end
 					if not found then
-						-- fallback: try at the generator's center
+						print("Trying generator center as fallback.")
 						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(genPivot.Position)
 						task.wait(0.3)
 						for i = 1, 3 do
 							fireproximityprompt(prompt)
+							print("Fired proximity prompt at center, attempt", i)
 							task.wait(0.2)
 						end
 					end
 				end
+			else
+				print("No prompt found for this generator!")
 			end
 			for i = 1, 6 do
 				if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
