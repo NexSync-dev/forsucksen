@@ -639,6 +639,8 @@ end
 pcall(task.spawn(DidiDie))
 AmIInGameYet()
 
+local Walkspeed = humanoid.WalkSpeed
+
 local function SetSpeed(multiplier)
     local char = game.Players.LocalPlayer.Character
     if char then
