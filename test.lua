@@ -533,22 +533,29 @@ local function DoAllGenerators()
 			task.wait(0.5)
 			local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
 			if prompt then
-				fireproximityprompt(prompt)
-				task.wait(0.5)
-				if not InGenerator() then
-					local positions = {
-						g:GetPivot().Position - g:GetPivot().RightVector * 3,
-						g:GetPivot().Position + g:GetPivot().RightVector * 3,
-					}
-					for i, pos in ipairs(positions) do
-						print("Trying position", i)
-						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-						task.wait(0.25)
-						fireproximityprompt(prompt)
-						if InGenerator() then
-							break
-						end
+				-- Try up to 4 positions around the generator
+				local positions = {
+					g:GetPivot().Position + g:GetPivot().LookVector * 3,
+					g:GetPivot().Position - g:GetPivot().LookVector * 3,
+					g:GetPivot().Position + g:GetPivot().RightVector * 3,
+					g:GetPivot().Position - g:GetPivot().RightVector * 3,
+				}
+				local found = false
+				for i, pos in ipairs(positions) do
+					Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+					task.wait(0.3)
+					fireproximityprompt(prompt)
+					task.wait(0.3)
+					if InGenerator() then
+						found = true
+						break
 					end
+				end
+				if not found then
+					-- fallback: try at the generator's center
+					Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(g:GetPivot().Position)
+					task.wait(0.3)
+					fireproximityprompt(prompt)
 				end
 			end
 			for i = 1, 6 do
