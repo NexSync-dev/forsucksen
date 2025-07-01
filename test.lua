@@ -644,7 +644,7 @@ local function SetSpeed(multiplier)
     local char = player.Character or player.CharacterAdded:Wait()
     local humanoid = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid")
     if humanoid then
-        local baseSpeed = humanoid.WalkSpeed or 16 -- fallback to 16 if nil
+        local baseSpeed = humanoid.WalkSpeed or 16
         humanoid.WalkSpeed = baseSpeed * multiplier
     end
     if char:FindFirstChild("SpeedMultipliers") then
@@ -655,8 +655,7 @@ local function SetSpeed(multiplier)
     end
 end
 
--- Auto-sprint: keep the sprinting multiplier set
-local desiredSprintMultiplier = 2 -- Change this to your desired sprint multiplier
+local desiredSprintMultiplier = 4
 
 local function AutoSprint()
     while true do
@@ -668,13 +667,12 @@ local function AutoSprint()
                 sprinting.Value = desiredSprintMultiplier
             end
         end
-        task.wait(0.2) -- adjust as needed
+        task.wait(0.1)
     end
 end
 
--- Start auto-sprint in the background
 pcall(function()
     task.spawn(AutoSprint)
 end)
 
-SetSpeed(desiredSprintMultiplier) -- Set initial speed
+SetSpeed(desiredSprintMultiplier)
