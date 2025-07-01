@@ -631,6 +631,11 @@ pcall(task.spawn(DidiDie))
 AmIInGameYet()
 
 local function IsSafeTeleportPosition(origin, target)
+	if not workspace.Raycast or not RaycastParams or not Players.LocalPlayer.Character then
+		-- Raycast not supported or character not loaded, skip check
+		return true
+	end
+
 	local rayParams = RaycastParams.new()
 	rayParams.FilterDescendantsInstances = {Players.LocalPlayer.Character}
 	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
