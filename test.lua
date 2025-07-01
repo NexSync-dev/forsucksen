@@ -562,33 +562,58 @@ local function DoAllGenerators()
 			task.wait(0.2)
 			local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
 			if prompt then
-				fireproximityprompt(prompt)
-				task.wait(0.5)
-				if not InGenerator() then
+				-- Fire the prompt several times to ensure it triggers
+				for i = 1, 5 do
+					fireproximityprompt(prompt)
+					task.wait(0.2)
+					if InGenerator() then
+						break
+					end
+				end
+				-- Wait a bit for the UI to appear
+				task.wait(0.3)
+				if InGenerator() then
+					-- Now do the generator (fire the remote)
+					for i = 1, 6 do
+						if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
+							g.Remotes.RE:FireServer()
+						end
+						if i < 6 and g.Progress.Value < 100 then
+							task.wait(GenTime)
+						end
+					end
+				else
+					-- If not in generator, try left/right as fallback
 					local positions = {
 						g:GetPivot().Position - g:GetPivot().RightVector * 3,
 						g:GetPivot().Position + g:GetPivot().RightVector * 3,
 					}
 					for i, pos in ipairs(positions) do
-						print("Trying position", i)
 						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
 						task.wait(0.25)
-						fireproximityprompt(prompt)
+						for j = 1, 5 do
+							fireproximityprompt(prompt)
+							task.wait(0.2)
+							if InGenerator() then
+								break
+							end
+						end
 						if InGenerator() then
+							-- Now do the generator
+							for k = 1, 6 do
+								if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
+									g.Remotes.RE:FireServer()
+								end
+								if k < 6 and g.Progress.Value < 100 then
+									task.wait(GenTime)
+								end
+							end
 							break
 						end
 					end
 				end
 			else
 				print("No prompt found for this generator!")
-			end
-			for i = 1, 6 do
-				if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
-					g.Remotes.RE:FireServer()
-				end
-				if i < 6 and g.Progress.Value < 100 then
-					task.wait(GenTime)
-				end
 			end
 		else
 			return
