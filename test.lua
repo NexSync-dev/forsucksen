@@ -514,7 +514,7 @@ local function DoAllGenerators()
 		local pathStarted = false
 		for attempt = 1, 3 do
 			local genPivot = g:GetPivot()
-			local tpPosition = genPivot.Position - genPivot.LookVector * 7 -- 7 studs behind the gen
+			local tpPosition = genPivot.Position - genPivot.LookVector * 20 -- 20 studs away from the gen
 			Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(tpPosition)
 			task.wait(0.2)
 			pathStarted = PathFinding(g)
