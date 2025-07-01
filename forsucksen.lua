@@ -1,3 +1,5 @@
+wait() until game:loaded then
+
 if getgenv and tonumber(getgenv().LoadTime) then
 	task.wait(tonumber(getgenv().LoadTime))
 else
@@ -749,4 +751,6 @@ local function TeleportIfKillerClose()
 			end
 		end
 	end
+end
+
 end
