@@ -513,14 +513,23 @@ local function DoAllGenerators()
 	for _, g in ipairs(findGenerators()) do
 		local pathStarted = false
 		for attempt = 1, 3 do
-			local genPivot = g:GetPivot()
-			local tpPosition = genPivot.Position - genPivot.LookVector * 20
-			if IsSafeTeleportPosition(genPivot.Position, tpPosition) then
-				Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(tpPosition)
-				task.wait(0.2)
-			else
-				print("Unsafe teleport position, skipping teleport for this generator.")
+			-- dont need cuz im sigma mafiza boy
+			-- local playersNearby = false
+			-- for _, player in ipairs(Players:GetPlayers()) do
+			-- 	if player ~= Players.LocalPlayer and player:DistanceFromCharacter(g:GetPivot().Position) <= 25 then
+			-- 		playersNearby = true
+			-- 		break
+			-- 	end
+			-- end
+
+			if (Players.LocalPlayer.Character:GetPivot().Position - g:GetPivot().Position).Magnitude > 500 then
+				break
 			end
+
+			-- if not playersNearby and g:FindFirstChild("Progress") and g.Progress.Value < 100 then
+			-- g:GetPivot()
+			-- end
+
 			pathStarted = PathFinding(g)
 			if pathStarted then
 				break
@@ -629,29 +638,3 @@ end
 
 pcall(task.spawn(DidiDie))
 AmIInGameYet()
-
-local function IsSafeTeleportPosition(origin, target)
-	if typeof(RaycastParams) ~= "table" or typeof(workspace.Raycast) ~= "function" or not Players.LocalPlayer.Character then
-		-- Raycast not supported or character not loaded, skip check
-		return true
-	end
-
-	local rayParams = RaycastParams.new()
-	rayParams.FilterDescendantsInstances = {Players.LocalPlayer.Character}
-	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-	-- Check for wall between origin and target
-	local direction = (target - origin)
-	local rayResult = workspace:Raycast(origin, direction, rayParams)
-	if rayResult and (rayResult.Position - origin).Magnitude < direction.Magnitude then
-		return false -- There's a wall in the way
-	end
-
-	-- Check for ground below target
-	local groundRay = workspace:Raycast(target + Vector3.new(0, 5, 0), Vector3.new(0, -20, 0), rayParams)
-	if not groundRay or not groundRay.Instance or groundRay.Position.Y > target.Y then
-		return false -- No ground below
-	end
-
-	return true
-end
