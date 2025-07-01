@@ -513,43 +513,53 @@ local function DoAllGenerators()
 				break
 			end
 
-			pathStarted = TeleportNearGenerator(g)
-			if pathStarted then
+			-- Teleport near the generator (20-30 studs away)
+			local teleported = TeleportNearGenerator(g)
+			if teleported then
 				task.wait(0.5)
-				WalkToGenerator(g)
-				local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
-				if prompt then
-					fireproximityprompt(prompt)
-					task.wait(0.5)
-					if not InGenerator() then
-						local positions = {
-							g:GetPivot().Position - g:GetPivot().RightVector * 3,
-							g:GetPivot().Position + g:GetPivot().RightVector * 3,
-						}
-						for i, pos in ipairs(positions) do
-							print("Trying position", i)
-							Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-							task.wait(0.25)
-							fireproximityprompt(prompt)
-							if InGenerator() then
-								break
-							end
-						end
-					end
-				end
-				for i = 1, 6 do
-					if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
-						g.Remotes.RE:FireServer()
-					end
-					if i < 6 and g.Progress.Value < 100 then
-						task.wait(GenTime)
-					end
-				end
+				-- Use PathFinding to walk to the generator
+				pathStarted = WalkToGenerator(g)
+			else
+				pathStarted = false
+			end
+
+			if pathStarted then
+				break
 			else
 				task.wait(1)
 			end
 		end
-		if not pathStarted then
+		if pathStarted then
+			task.wait(0.5)
+			local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
+			if prompt then
+				fireproximityprompt(prompt)
+				task.wait(0.5)
+				if not InGenerator() then
+					local positions = {
+						g:GetPivot().Position - g:GetPivot().RightVector * 3,
+						g:GetPivot().Position + g:GetPivot().RightVector * 3,
+					}
+					for i, pos in ipairs(positions) do
+						print("Trying position", i)
+						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+						task.wait(0.25)
+						fireproximityprompt(prompt)
+						if InGenerator() then
+							break
+						end
+					end
+				end
+			end
+			for i = 1, 6 do
+				if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
+					g.Remotes.RE:FireServer()
+				end
+				if i < 6 and g.Progress.Value < 100 then
+					task.wait(GenTime)
+				end
+			end
+		else
 			return
 		end
 	end
