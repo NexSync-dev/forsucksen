@@ -1,5 +1,3 @@
-wait() until game:Loaded then
-
 if getgenv and tonumber(getgenv().LoadTime) then
 	task.wait(tonumber(getgenv().LoadTime))
 else
@@ -29,18 +27,6 @@ local GenTime = tonumber(getgenv and getgenv().GeneratorTime) or 2.5
 local Nnnnnnotificvationui
 local AliveNotificaiotna = {}
 local ProfilePicture = ""
-
-local initialSpawnPosition = nil
-
--- Set initial spawn position to where the script is executed
-pcall(function()
-	local char = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
-	local root = char:FindFirstChild("HumanoidRootPart")
-	if root then
-		initialSpawnPosition = root.Position
-		print("[forsaken.lua] Initial spawn position set to:", initialSpawnPosition)
-	end
-end)
 
 if DCWebhook == "" then
 	DCWebhook = false
@@ -287,41 +273,66 @@ pcall(function()
 	Controller:Disable()
 end)
 
-local Http = game:GetService("HttpService")
-local TPS = game:GetService("TeleportService")
-local Player = game.Players.LocalPlayer
-local Api = "https://games.roblox.com/v1/games/"
-
-local placeId = game.PlaceId
-local currentJobId = game.JobId
-local serversUrl = Api .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-
-function ListServers(cursor)
-    local Raw = game:HttpGet(serversUrl .. ((cursor and "&cursor="..cursor) or ""))
-    return Http:JSONDecode(Raw)
-end
-
 local function teleportToRandomServer()
-    local Servers = ListServers()
-    if Servers and Servers.data and #Servers.data > 0 then
-        -- Try to find a server that isn't the current one and isn't full
-        local candidates = {}
-        for _, server in ipairs(Servers.data) do
-            if server.id ~= currentJobId and server.playing < server.maxPlayers then
-                table.insert(candidates, server)
-            end
-        end
-        if #candidates > 0 then
-            local Server = candidates[math.random(1, #candidates)]
-            -- Anchor player before teleporting (optional, for stability)
-            local Player = game.Players.LocalPlayer
-            if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                Player.Character.HumanoidRootPart.Anchored = true
-            end
-            game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, Server.id, Player)
-        end
-    end
+	local Counter = 0
+	local MaxRetry = 10
+	local RetryingDelays = 10
+
+	local Request = http_request or syn.request or request
+	if Request then
+		local url = "https://games.roblox.com/v1/games/18687417158/servers/Public?sortOrder=Asc&limit=100"
+
+		while Counter < MaxRetry do
+			local success, response = pcall(function()
+				return Request({
+					Url = url,
+					Method = "GET",
+					Headers = { ["Content-Type"] = "application/json" },
+				})
+			end)
+
+			if success and response and response.Body then
+				local data = HttpService:JSONDecode(response.Body)
+				if data and data.data and #data.data > 0 then
+					local server = data.data[math.random(1, #data.data)]
+					if server.id then
+						MakeNotif(
+							"Teleporting...",
+							"Attempting to teleport to server: " .. server.id,
+							5,
+							Color3.fromRGB(115, 194, 89)
+						)
+						task.wait(0.25)
+						TeleportService:TeleportToPlaceInstance(18687417158, server.id, Players.LocalPlayer)
+						return
+					end
+				end
+			end
+
+			Counter = Counter + 1
+			MakeNotif(
+				"PathfindGens",
+				"Retrying to get a server... Attempt " .. Counter .. "/" .. MaxRetry,
+				5,
+				Color3.fromRGB(255, 0, 0)
+			)
+			task.wait(RetryingDelays)
+		end
+	end
 end
+
+task.delay(2.5, function()
+	pcall(function()
+		local timer = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main.Time.ContentText
+		local minutes, seconds = timer:match("(%d+):(%d+)")
+		local totalSeconds = tonumber(minutes) * 60 + tonumber(seconds)
+		print(totalSeconds .. " Left till round end.")
+		MakeNotif("PathfindGens", "Round ends in " .. totalSeconds .. " seconds.", 5, Color3.fromRGB(115, 194, 89))
+		if totalSeconds > 90 then
+			teleportToRandomServer()
+		end
+	end)
+end)
 
 local function findGenerators()
 	local folder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame")
@@ -391,6 +402,7 @@ local function InGenerator()
 	return true
 end
 
+-- Smart position check for teleporting
 local function IsPositionClear(fromPosition, toPosition)
 	local characterSize = Vector3.new(2, 4, 2) -- Approximate player size (width, height, depth)
 	local offsets = {
@@ -401,7 +413,9 @@ local function IsPositionClear(fromPosition, toPosition)
 		Vector3.new(0, 0, -characterSize.Z/2), -- back
 	}
 	local raycastParams = RaycastParams.new()
-	raycastParams.FilterDescendantsInstances = {Players.LocalPlayer.Character}
+	if Players.LocalPlayer.Character then
+		raycastParams.FilterDescendantsInstances = {Players.LocalPlayer.Character}
+	end
 	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 	raycastParams.IgnoreWater = true
 
@@ -463,116 +477,7 @@ local function TeleportNearGenerator(generator)
 	return true
 end
 
-local function PathFinding(generator)
-	local success, SkibidiSprinting = pcall(function()
-		local a = require(game.ReplicatedStorage.Systems.Character.Game.Sprinting)
-		a.StaminaLossDisabled = true
-	end)
-
-	local activeNodes = {}
-
-	local function createNode(position)
-		local part = Instance.new("Part")
-		part.Size = Vector3.new(0.6, 0.6, 0.6)
-		part.Shape = Enum.PartType.Ball
-		part.Material = Enum.Material.Neon
-		part.Color = Color3.fromRGB(248, 255, 150)
-		part.Transparency = 0.5
-		part.Anchored = true
-		part.CanCollide = false
-		part.Position = position + Vector3.new(0, 1.5, 0)
-		part.Parent = workspace
-		table.insert(activeNodes, part)
-		game:GetService("Debris"):AddItem(part, 15)
-	end
-
-	local acidContainer = workspace:FindFirstChild("Map")
-		and workspace.Map:FindFirstChild("Ingame")
-		and workspace.Map.Ingame:FindFirstChild("Map")
-		and workspace.Map.Ingame.Map:FindFirstChild("AcidContainer")
-		and workspace.Map.Ingame.Map.AcidContainer:FindFirstChild("AcidDirt")
-	if acidContainer then
-		for _, part in ipairs(acidContainer:GetChildren()) do
-			if part.Name == "Dirt" and part.Size.Y < 12 then
-				part.Size = Vector3.new(part.Size.X, 13, part.Size.Z)
-			end
-		end
-	end
-
-	if not generator or not generator.Parent then
-		return false
-	end
-	if not Players.LocalPlayer.Character or not Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		return false
-	end
-
-	local humanoid = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
-	if not humanoid then
-		return false
-	end
-
-	local targetPosition = generator:GetPivot().Position + generator:GetPivot().LookVector * 3
-	if not targetPosition then
-		return false
-	end
-
-	VisualizePivot(generator)
-
-	local path = game:GetService("PathfindingService"):CreatePath({
-		AgentRadius = 2.5,
-		AgentHeight = 1,
-		AgentCanJump = false,
-	})
-
-	local success, errorMessage = pcall(function()
-		path:ComputeAsync(rootPart.Position, targetPosition)
-	end)
-
-	if not success or path.Status ~= Enum.PathStatus.Success then
-		print("Path computation failed:", errorMessage)
-		return false
-	end
-
-	local waypoints = path:GetWaypoints()
-
-	if #waypoints <= 1 then
-		return false
-	end
-
-	for i, waypoint in ipairs(waypoints) do
-		createNode(waypoint.Position)
-		humanoid:MoveTo(waypoint.Position)
-
-		local reachedWaypoint = false
-		local startTime = tick()
-		while not reachedWaypoint and tick() - startTime < 5 do
-			local distance = (rootPart.Position - waypoint.Position).Magnitude
-			if distance < 5 then
-				reachedWaypoint = true
-				break
-			end
-			RunService.Heartbeat:Wait()
-		end
-
-		if not reachedWaypoint then
-			local char = game:GetService("Players").LocalPlayer.Character
-			local speedMultipliers = char and char:FindFirstChild("SpeedMultipliers")
-			local sprinting = speedMultipliers and speedMultipliers:FindFirstChild("Sprinting")
-			if sprinting and sprinting.Value < 1.1 then
-				VIMVIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
-			end
-			return false
-		end
-	end
-
-	for _, node in ipairs(activeNodes) do
-		node:Destroy()
-	end
-
-	return true
-end
-
+-- Replace DoAllGenerators pathfinding with smart TP
 local function DoAllGenerators()
 	for _, g in ipairs(findGenerators()) do
 		local pathStarted = false
@@ -604,14 +509,16 @@ local function DoAllGenerators()
 						end
 					end
 				end
-			end
-			for i = 1, 6 do
-				if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
-					g.Remotes.RE:FireServer()
+				for i = 1, 6 do
+					if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
+						g.Remotes.RE:FireServer()
+					end
+					if i < 6 and g.Progress.Value < 100 then
+						task.wait(GenTime)
+					end
 				end
-				if i < 6 and g.Progress.Value < 100 then
-					task.wait(GenTime)
-				end
+			else
+				task.wait(1)
 			end
 		end
 		if not pathStarted then
@@ -645,32 +552,10 @@ local function AmIInGameYet()
 	workspace.Players.Survivors.ChildAdded:Connect(function(child)
 		task.wait(1)
 		if child == game:GetService("Players").LocalPlayer.Character then
-			-- Check if we are the killer
-			local player = Players.LocalPlayer
-			if player.Team and player.Team.Name == "Killer" then
-				-- Say message in chat
-				local chatEvent = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
-				if chatEvent and chatEvent:FindFirstChild("SayMessageRequest") then
-					chatEvent.SayMessageRequest:FireServer("no ion wanna be killer now", "All")
-				end
-				-- Reset character
-				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-				if humanoid then
-					humanoid.Health = 0
-				end
-				return
-			end
-			-- Save initial spawn position
-			local rootPart = child:FindFirstChild("HumanoidRootPart")
-			if rootPart then
-				initialSpawnPosition = rootPart.Position
-			end
-			task.wait(3)
+			task.wait(4)
 			DoAllGenerators()
 		end
 	end)
-
-	task.spawn(TeleportIfKillerClose)
 end
 
 local function DidiDie()
@@ -707,29 +592,3 @@ end
 
 pcall(task.spawn(DidiDie))
 AmIInGameYet()
-
-local function TeleportIfKillerClose()
-	while true do
-		task.wait(0.2)
-		local localPlayer = Players.LocalPlayer
-		local myChar = localPlayer.Character
-		if not myChar or not myChar:FindFirstChild("HumanoidRootPart") or not initialSpawnPosition then
-			-- skip this iteration
-		else
-			for _, player in ipairs(Players:GetPlayers()) do
-				if player ~= localPlayer and player.Team and player.Team.Name == "Killer" then
-					local killerChar = player.Character
-					if killerChar and killerChar:FindFirstChild("HumanoidRootPart") then
-						local dist = (myChar.HumanoidRootPart.Position - killerChar.HumanoidRootPart.Position).Magnitude
-						print("Killer distance:", dist)
-						if dist < 20 and myChar:FindFirstChildOfClass("Humanoid").Health > 0 then
-							print("Killer too close! Teleporting to spawn.")
-							myChar.HumanoidRootPart.CFrame = CFrame.new(initialSpawnPosition)
-							break
-						end
-					end
-				end
-			end
-		end
-	end
-end
