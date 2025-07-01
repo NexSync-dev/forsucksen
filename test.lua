@@ -532,6 +532,34 @@ local function DoAllGenerators()
 		end
 		if pathStarted then
 			task.wait(0.5)
+			-- After pathfinding, teleport to the closest clear position around the generator
+			local genPivot = g:GetPivot()
+			local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
+			local directions = {
+				genPivot.LookVector,
+				-genPivot.LookVector,
+				genPivot.RightVector,
+				-genPivot.RightVector,
+			}
+			local bestPos = nil
+			local bestDist = math.huge
+			for _, dir in ipairs(directions) do
+				local pos = genPivot.Position + dir * 3
+				if IsPositionClear(genPivot.Position, pos) then
+					local dist = (rootPart.Position - pos).Magnitude
+					if dist < bestDist then
+						bestDist = dist
+						bestPos = pos
+					end
+				end
+			end
+			if bestPos then
+				rootPart.CFrame = CFrame.new(bestPos)
+			else
+				-- fallback: just go in front
+				rootPart.CFrame = CFrame.new(genPivot.Position + genPivot.LookVector * 3)
+			end
+			task.wait(0.2)
 			local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
 			if prompt then
 				fireproximityprompt(prompt)
