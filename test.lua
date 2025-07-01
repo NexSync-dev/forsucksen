@@ -479,9 +479,9 @@ end
 
 local function WalkToGenerator(generator)
 	local character = Players.LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then return end
+	if not humanoid then return false end
 
 	local genPos = generator:GetPivot().Position
 	local path = PathfindingService:CreatePath({
@@ -502,6 +502,7 @@ local function WalkToGenerator(generator)
 		humanoid:MoveTo(genPos)
 		humanoid.MoveToFinished:Wait()
 	end
+	return true
 end
 
 -- Replace DoAllGenerators pathfinding with smart TP
