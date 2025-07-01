@@ -492,7 +492,7 @@ local function WalkToGenerator(generator)
 		AgentMaxSlope = 45,
 	})
 	path:ComputeAsync(character.HumanoidRootPart.Position, genPos)
-	if path.Status == Enum.PathStatus.Complete then
+	if path.Status == Enum.PathStatus.Success then
 		for _, waypoint in ipairs(path:GetWaypoints()) do
 			humanoid:MoveTo(waypoint.Position)
 			humanoid.MoveToFinished:Wait()
