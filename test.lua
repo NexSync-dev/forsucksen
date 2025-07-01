@@ -631,7 +631,7 @@ pcall(task.spawn(DidiDie))
 AmIInGameYet()
 
 local function IsSafeTeleportPosition(origin, target)
-	if not workspace.Raycast or not RaycastParams or not Players.LocalPlayer.Character then
+	if typeof(RaycastParams) ~= "table" or typeof(workspace.Raycast) ~= "function" or not Players.LocalPlayer.Character then
 		-- Raycast not supported or character not loaded, skip check
 		return true
 	end
