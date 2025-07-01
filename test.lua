@@ -694,6 +694,7 @@ local invisRunning = false
 local IsInvis = false
 local IsRunning = true
 local InvisibleCharacter, Character, Player, invisFix, invisDied, Void, CF
+local lastPosition = nil
 
 function GoInvisible(speaker)
     if invisRunning then return end
@@ -778,7 +779,8 @@ function GoInvisible(speaker)
     IsInvis = true
     CF = workspace.CurrentCamera.CFrame
     local CF_1 = Player.Character.HumanoidRootPart.CFrame
-    Character:MoveTo(Vector3.new(0,math.pi*1000000,0))
+    lastPosition = Player.Character.HumanoidRootPart.CFrame
+    Character:MoveTo(Vector3.new(0, math.pi*1000000, 0))
     workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
     wait(.2)
     workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
@@ -802,7 +804,9 @@ function TurnVisible()
     CF = workspace.CurrentCamera.CFrame
     Character = Character
     local CF_1 = Player.Character.HumanoidRootPart.CFrame
-    Character.HumanoidRootPart.CFrame = CF_1
+    if lastPosition then
+        Character.HumanoidRootPart.CFrame = lastPosition
+    end
     if InvisibleCharacter then InvisibleCharacter:Destroy() end
     Player.Character = Character
     Character.Parent = workspace
@@ -819,26 +823,38 @@ end
 
 task.spawn(function()
     while true do
-        local killerPos, killerModel = GetKillerPosition()
+        local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
         local myChar = game.Players.LocalPlayer.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        if killerPos and myRoot then
-            local dist = (myRoot.Position - killerPos).Magnitude
-            print("Killer distance:", dist)
-            if dist <= 10 then
-                if not invisRunning then
-                    GoInvisible(game.Players.LocalPlayer)
+        local killerClose = false
+
+        if killersGroup and myRoot then
+            for _, killerModel in ipairs(killersGroup:GetChildren()) do
+                local hrp = killerModel:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local dist = (myRoot.Position - hrp.Position).Magnitude
+                    -- Debug print
+                    print("Killer", killerModel.Name, "distance:", dist)
+                    if dist <= 10 then
+                        killerClose = true
+                        break
+                    end
                 end
-            else
-                if invisRunning then
-                    TurnVisible()
-                end
+            end
+        end
+
+        if killerClose then
+            if not invisRunning then
+                print("Turning invisible: killer is close")
+                GoInvisible(game.Players.LocalPlayer)
             end
         else
             if invisRunning then
+                print("Turning visible: killer is far")
                 TurnVisible()
             end
         end
-        task.wait(0.2)
+
+        task.wait(0.1)
     end
 end)
