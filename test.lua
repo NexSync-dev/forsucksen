@@ -601,6 +601,11 @@ local function PathFinding(generator)
 	return true
 end
 
+local function getRandomGenTime()
+    local base = tonumber(getgenv and getgenv().GeneratorTime) or 2.5
+    return base + math.random() * 0.7 -- adds up to 0.7s random delay
+end
+
 local function DoAllGenerators()
 	for _, g in ipairs(findGenerators()) do
 		local pathStarted = false
@@ -634,10 +639,12 @@ local function DoAllGenerators()
 				end
 				for i = 1, 6 do
 					if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
-						g.Remotes.RE:FireServer()
+						if math.random() > 0.1 then
+							g.Remotes.RE:FireServer()
+						end
 					end
 					if i < 6 and g.Progress.Value < 100 then
-						task.wait(GenTime)
+						task.wait(getRandomGenTime())
 					end
 				end
 			else
