@@ -678,11 +678,12 @@ end)
 SetSpeed(desiredSprintMultiplier)
 
 local function GetKillerPosition()
-    for _, player in ipairs(game.Players:GetPlayers()) do
-        if player ~= game.Players.LocalPlayer and player.Team and player.Team.Name == "Killer" then
-            local killerChar = player.Character
-            if killerChar and killerChar:FindFirstChild("HumanoidRootPart") then
-                return killerChar.HumanoidRootPart.Position, player
+    local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersGroup then
+        for _, killerModel in ipairs(killersGroup:GetChildren()) do
+            local hrp = killerModel:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                return hrp.Position, killerModel
             end
         end
     end
@@ -816,12 +817,12 @@ end
 
 task.spawn(function()
     while true do
-        local killerPos, killer = GetKillerPosition()
+        local killerPos, killerModel = GetKillerPosition()
         local myChar = game.Players.LocalPlayer.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
         if killerPos and myRoot then
             local dist = (myRoot.Position - killerPos).Magnitude
-            print("Killer:", killer and killer.Name or "none", "Distance:", dist)
+            print("Killer distance:", dist)
             if dist <= 10 then
                 if not invisRunning then
                     GoInvisible(game.Players.LocalPlayer)
@@ -832,7 +833,6 @@ task.spawn(function()
                 end
             end
         else
-            -- If killer not found, ensure visible
             if invisRunning then
                 TurnVisible()
             end
