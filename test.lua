@@ -655,5 +655,26 @@ local function SetSpeed(multiplier)
     end
 end
 
--- Example usage:
-SetSpeed(2) -- 100% faster
+-- Auto-sprint: keep the sprinting multiplier set
+local desiredSprintMultiplier = 2 -- Change this to your desired sprint multiplier
+
+local function AutoSprint()
+    while true do
+        local player = game.Players.LocalPlayer
+        local char = player.Character
+        if char and char:FindFirstChild("SpeedMultipliers") then
+            local sprinting = char.SpeedMultipliers:FindFirstChild("Sprinting")
+            if sprinting and sprinting.Value ~= desiredSprintMultiplier then
+                sprinting.Value = desiredSprintMultiplier
+            end
+        end
+        task.wait(0.2) -- adjust as needed
+    end
+end
+
+-- Start auto-sprint in the background
+pcall(function()
+    task.spawn(AutoSprint)
+end)
+
+SetSpeed(desiredSprintMultiplier) -- Set initial speed
