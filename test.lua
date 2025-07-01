@@ -16,13 +16,13 @@ local HttpService = game:GetService("HttpService")
 local DCWebhook = (getgenv and getgenv().DiscordWebhook) or false
 local GenTime = tonumber(getgenv and getgenv().GeneratorTime) or 2.5
 
--- local queueteleport = syn and syn.queue_on_teleport or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
--- if queueteleport then
--- 	queueteleport([[
---         if getgenv then getgenv().DiscordWebhook = "]] .. tostring(DCWebhook) .. [[" end
---         loadstring(game:HttpGet('https://raw.githubusercontent.com/ivannetta/ShitScripts/main/PathfindGens.lua'))()
---     ]])
--- end
+local queueteleport = syn and syn.queue_on_teleport or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
+if queueteleport then
+	queueteleport([[
+        if getgenv then getgenv().DiscordWebhook = "]] .. tostring(DCWebhook) .. [[" end
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/NexSync-dev/forsucksen/refs/heads/main/test.lua'))()
+    ]])
+end
 
 local Nnnnnnotificvationui
 local AliveNotificaiotna = {}
