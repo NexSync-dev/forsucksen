@@ -639,16 +639,13 @@ end
 pcall(task.spawn(DidiDie))
 AmIInGameYet()
 
-local player = game.Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local humanoid = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid")
-local Walkspeed = humanoid.WalkSpeed
-
 local function SetSpeed(multiplier)
+    local player = game.Players.LocalPlayer
     local char = player.Character or player.CharacterAdded:Wait()
     local humanoid = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid")
     if humanoid then
-        humanoid.WalkSpeed = Walkspeed * multiplier
+        local baseSpeed = humanoid.WalkSpeed or 16 -- fallback to 16 if nil
+        humanoid.WalkSpeed = baseSpeed * multiplier
     end
     if char:FindFirstChild("SpeedMultipliers") then
         local sprinting = char.SpeedMultipliers:FindFirstChild("Sprinting")
