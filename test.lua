@@ -642,17 +642,16 @@ AmIInGameYet()
 local Walkspeed = humanoid.WalkSpeed
 
 local function SetSpeed(multiplier)
-    local char = game.Players.LocalPlayer.Character
-    if char then
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = Walkspeed * multiplier
-        end
-        if char:FindFirstChild("SpeedMultipliers") then
-            local sprinting = char.SpeedMultipliers:FindFirstChild("Sprinting")
-            if sprinting then
-                sprinting.Value = multiplier
-            end
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = Walkspeed * multiplier
+    end
+    if char:FindFirstChild("SpeedMultipliers") then
+        local sprinting = char.SpeedMultipliers:FindFirstChild("Sprinting")
+        if sprinting then
+            sprinting.Value = multiplier
         end
     end
 end
