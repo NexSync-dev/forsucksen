@@ -595,7 +595,7 @@ local function AmIInGameYet()
 		end
 	end)
 end
-
+ 
 local function DidiDie()
 	while task.wait(0.5) do
 		if Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
