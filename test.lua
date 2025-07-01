@@ -402,128 +402,122 @@ local function InGenerator()
 	return true
 end
 
--- Smart position check for teleporting
-local function IsPositionClear(fromPosition, toPosition)
-	local characterSize = Vector3.new(2, 4, 2) -- Approximate player size (width, height, depth)
-	local offsets = {
-		Vector3.new(0, 0, 0), -- center
-		Vector3.new(characterSize.X/2, 0, 0), -- right
-		Vector3.new(-characterSize.X/2, 0, 0), -- left
-		Vector3.new(0, 0, characterSize.Z/2), -- front
-		Vector3.new(0, 0, -characterSize.Z/2), -- back
-	}
-	local raycastParams = RaycastParams.new()
-	if Players.LocalPlayer.Character then
-		raycastParams.FilterDescendantsInstances = {Players.LocalPlayer.Character}
-	end
-	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-	raycastParams.IgnoreWater = true
+local function PathFinding(generator)
+	local success, SkibidiSprinting = pcall(function()
+		local a = require(game.ReplicatedStorage.Systems.Character.Game.Sprinting)
+		a.StaminaLossDisabled = true
+	end)
 
-	for _, offset in ipairs(offsets) do
-		local start = fromPosition + offset
-		local finish = toPosition + offset
-		local direction = finish - start
-		local result = workspace:Raycast(start, direction, raycastParams)
-		if result then
+	local activeNodes = {}
+
+	local function createNode(position)
+		local part = Instance.new("Part")
+		part.Size = Vector3.new(0.6, 0.6, 0.6)
+		part.Shape = Enum.PartType.Ball
+		part.Material = Enum.Material.Neon
+		part.Color = Color3.fromRGB(248, 255, 150)
+		part.Transparency = 0.5
+		part.Anchored = true
+		part.CanCollide = false
+		part.Position = position + Vector3.new(0, 1.5, 0)
+		part.Parent = workspace
+		table.insert(activeNodes, part)
+		game:GetService("Debris"):AddItem(part, 15)
+	end
+
+	local acidContainer = workspace:FindFirstChild("Map")
+		and workspace.Map:FindFirstChild("Ingame")
+		and workspace.Map.Ingame:FindFirstChild("Map")
+		and workspace.Map.Ingame.Map:FindFirstChild("AcidContainer")
+		and workspace.Map.Ingame.Map.AcidContainer:FindFirstChild("AcidDirt")
+	if acidContainer then
+		for _, part in ipairs(acidContainer:GetChildren()) do
+			if part.Name == "Dirt" and part.Size.Y < 12 then
+				part.Size = Vector3.new(part.Size.X, 13, part.Size.Z)
+			end
+		end
+	end
+
+	if not generator or not generator.Parent then
+		return false
+	end
+	if not Players.LocalPlayer.Character or not Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		return false
+	end
+
+	local humanoid = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
+	if not humanoid then
+		return false
+	end
+
+	local targetPosition = generator:GetPivot().Position + generator:GetPivot().LookVector * 3
+	if not targetPosition then
+		return false
+	end
+
+	VisualizePivot(generator)
+
+	local path = game:GetService("PathfindingService"):CreatePath({
+		AgentRadius = 2.5,
+		AgentHeight = 1,
+		AgentCanJump = false,
+	})
+
+	local success, errorMessage = pcall(function()
+		path:ComputeAsync(rootPart.Position, targetPosition)
+	end)
+
+	if not success or path.Status ~= Enum.PathStatus.Success then
+		print("Path computation failed:", errorMessage)
+		return false
+	end
+
+	local waypoints = path:GetWaypoints()
+
+	if #waypoints <= 1 then
+		return false
+	end
+
+	for i, waypoint in ipairs(waypoints) do
+		createNode(waypoint.Position)
+		humanoid:MoveTo(waypoint.Position)
+
+		local reachedWaypoint = false
+		local startTime = tick()
+		while not reachedWaypoint and tick() - startTime < 5 do
+			local distance = (rootPart.Position - waypoint.Position).Magnitude
+			if distance < 5 then
+				reachedWaypoint = true
+				break
+			end
+			RunService.Heartbeat:Wait()
+		end
+
+		if not reachedWaypoint then
+			if game:GetService("Players").LocalPlayer.Character:FindFirstChild("SpeedMultipliers"):FindFirstChild("Sprinting").Value < 1.1 then
+				VIMVIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
+			end
 			return false
 		end
 	end
 
-	-- Check for floor at the target position
-	local floorRay = workspace:Raycast(toPosition + Vector3.new(0, 2, 0), Vector3.new(0, -6, 0), raycastParams)
-	if not floorRay then
-		return false
+	for _, node in ipairs(activeNodes) do
+		node:Destroy()
 	end
 
-	-- Check that the position is not below the map (e.g., y > 2)
-	if toPosition.Y < 2 then
-		return false
-	end
 	return true
 end
 
-local function TeleportNearGenerator(generator)
-	if not generator or not generator.Parent then return false end
-	if not Players.LocalPlayer.Character or not Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return false end
-
-	local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
-	local genPivot = generator:GetPivot()
-	local directions = {
-		genPivot.LookVector,
-		-genPivot.LookVector,
-		genPivot.RightVector,
-		-genPivot.RightVector,
-	}
-
-	-- Shuffle directions for randomness
-	for i = #directions, 2, -1 do
-		local j = math.random(i)
-		directions[i], directions[j] = directions[j], directions[i]
-	end
-
-	for _, dir in ipairs(directions) do
-		local distance = math.random(20, 30) -- teleport 20-30 studs away
-		local targetPos = genPivot.Position + dir * distance
-		if IsPositionClear(genPivot.Position, targetPos) then
-			rootPart.CFrame = CFrame.new(targetPos)
-			return true
-		end
-	end
-
-	-- Fallback: random direction
-	local randomDir = directions[math.random(1, #directions)]
-	local randomDist = math.random(20, 30)
-	rootPart.CFrame = CFrame.new(genPivot.Position + randomDir * randomDist)
-	return true
-end
-
-local function WalkToGenerator(generator)
-	local character = Players.LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then return false end
-
-	local genPos = generator:GetPivot().Position
-	local path = PathfindingService:CreatePath({
-		AgentRadius = 2,
-		AgentHeight = 5,
-		AgentCanJump = true,
-		AgentJumpHeight = 7,
-		AgentMaxSlope = 45,
-	})
-	path:ComputeAsync(character.HumanoidRootPart.Position, genPos)
-	if path.Status == Enum.PathStatus.Success then
-		for _, waypoint in ipairs(path:GetWaypoints()) do
-			humanoid:MoveTo(waypoint.Position)
-			humanoid.MoveToFinished:Wait()
-		end
-	else
-		-- fallback: simple MoveTo
-		humanoid:MoveTo(genPos)
-		humanoid.MoveToFinished:Wait()
-	end
-	return true
-end
-
--- Replace DoAllGenerators pathfinding with smart TP
 local function DoAllGenerators()
 	for _, g in ipairs(findGenerators()) do
 		local pathStarted = false
 		for attempt = 1, 3 do
-			if (Players.LocalPlayer.Character:GetPivot().Position - g:GetPivot().Position).Magnitude > 500 then
-				break
-			end
-
-			-- Teleport near the generator (20-30 studs away)
-			local teleported = TeleportNearGenerator(g)
-			if teleported then
-				task.wait(0.5)
-				-- Use PathFinding to walk to the generator
-				pathStarted = WalkToGenerator(g)
-			else
-				pathStarted = false
-			end
-
+			local genPivot = g:GetPivot()
+			local tpPosition = genPivot.Position - genPivot.LookVector * 7 -- 7 studs behind the gen
+			Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(tpPosition)
+			task.wait(0.2)
+			pathStarted = PathFinding(g)
 			if pathStarted then
 				break
 			else
@@ -532,88 +526,33 @@ local function DoAllGenerators()
 		end
 		if pathStarted then
 			task.wait(0.5)
-			-- After pathfinding, teleport to the closest clear position around the generator
-			local genPivot = g:GetPivot()
-			local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
-			local directions = {
-				genPivot.LookVector,
-				-genPivot.LookVector,
-				genPivot.RightVector,
-				-genPivot.RightVector,
-			}
-			local bestPos = nil
-			local bestDist = math.huge
-			for _, dir in ipairs(directions) do
-				local pos = genPivot.Position + dir * 3
-				if IsPositionClear(genPivot.Position, pos) then
-					local dist = (rootPart.Position - pos).Magnitude
-					if dist < bestDist then
-						bestDist = dist
-						bestPos = pos
-					end
-				end
-			end
-			if bestPos then
-				rootPart.CFrame = CFrame.new(bestPos)
-			else
-				-- fallback: just go in front
-				rootPart.CFrame = CFrame.new(genPivot.Position + genPivot.LookVector * 3)
-			end
-			task.wait(0.2)
 			local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
 			if prompt then
-				-- Fire the prompt several times to ensure it triggers
-				for i = 1, 5 do
-					fireproximityprompt(prompt)
-					task.wait(0.2)
-					if InGenerator() then
-						break
-					end
-				end
-				-- Wait a bit for the UI to appear
-				task.wait(0.3)
-				if InGenerator() then
-					-- Now do the generator (fire the remote)
-					for i = 1, 6 do
-						if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
-							g.Remotes.RE:FireServer()
-						end
-						if i < 6 and g.Progress.Value < 100 then
-							task.wait(GenTime)
-						end
-					end
-				else
-					-- If not in generator, try left/right as fallback
+				fireproximityprompt(prompt)
+				task.wait(0.5)
+				if not InGenerator() then
 					local positions = {
 						g:GetPivot().Position - g:GetPivot().RightVector * 3,
 						g:GetPivot().Position + g:GetPivot().RightVector * 3,
 					}
 					for i, pos in ipairs(positions) do
+						print("Trying position", i)
 						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
 						task.wait(0.25)
-						for j = 1, 5 do
-							fireproximityprompt(prompt)
-							task.wait(0.2)
-							if InGenerator() then
-								break
-							end
-						end
+						fireproximityprompt(prompt)
 						if InGenerator() then
-							-- Now do the generator
-							for k = 1, 6 do
-								if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
-									g.Remotes.RE:FireServer()
-								end
-								if k < 6 and g.Progress.Value < 100 then
-									task.wait(GenTime)
-								end
-							end
 							break
 						end
 					end
 				end
-			else
-				print("No prompt found for this generator!")
+			end
+			for i = 1, 6 do
+				if g.Progress.Value < 100 and g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE") then
+					g.Remotes.RE:FireServer()
+				end
+				if i < 6 and g.Progress.Value < 100 then
+					task.wait(GenTime)
+				end
 			end
 		else
 			return
@@ -651,7 +590,7 @@ local function AmIInGameYet()
 		end
 	end)
 end
- 
+
 local function DidiDie()
 	while task.wait(0.5) do
 		if Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
