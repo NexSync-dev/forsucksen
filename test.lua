@@ -821,6 +821,7 @@ task.spawn(function()
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
         if killerPos and myRoot then
             local dist = (myRoot.Position - killerPos).Magnitude
+            print("Killer:", killer and killer.Name or "none", "Distance:", dist)
             if dist <= 10 then
                 if not invisRunning then
                     GoInvisible(game.Players.LocalPlayer)
