@@ -276,31 +276,69 @@ pcall(function()
 	Controller:Disable()
 end)
 
-local Player = game.Players.LocalPlayer    
-local Http = game:GetService("HttpService")
-local TPS = game:GetService("TeleportService")
-local Api = "https://games.roblox.com/v1/games/"
+local function teleportToSmallestServer(maxRetries)
+	local Api = "https://games.roblox.com/v1/games/"
+	local placeId = game.PlaceId
+	local url = Api .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+	local Http = game:GetService("HttpService")
+	local TPS = game:GetService("TeleportService")
+	local Player = game.Players.LocalPlayer
+	local currentJobId = game.JobId
 
-local _place = game.PlaceId
-local _servers = Api.._place.."/servers/Public?sortOrder=Asc&limit=10"
+	maxRetries = maxRetries or 5
 
-local function ListServers(cursor)
-    local Raw = game:HttpGet(_servers .. (cursor and ("&cursor="..cursor) or ""))
-    return Http:JSONDecode(Raw)
-end
+	local function fetchServerList()
+		return Http:JSONDecode(game:HttpGet(url))
+	end
 
-function TeleportToRandomServer()
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        Player.Character.HumanoidRootPart.Anchored = true
-    end
+	local function sortByPlayerCount(a, b)
+		return a.playing < b.playing
+	end
 
-    local Servers = ListServers()
-    if Servers and Servers.data and #Servers.data > 0 then
-        local Server = Servers.data[math.random(1, #Servers.data)]
-        TPS:TeleportToPlaceInstance(_place, Server.id, Player)
-    else
-        warn("No servers found to teleport to!")
-    end
+	for attempt = 1, maxRetries do
+		local success, result = pcall(fetchServerList)
+
+		if success and result and result.data and #result.data > 0 then
+			table.sort(result.data, sortByPlayerCount)
+
+			for _, server in ipairs(result.data) do
+				if server.id ~= currentJobId and server.playing < server.maxPlayers then
+					MakeNotif(
+						"Teleporting...",
+						"Attempting to teleport to server: " .. server.id .. " (" .. server.playing .. "/" .. server.maxPlayers .. ")",
+						5,
+						Color3.fromRGB(115, 194, 89)
+					)
+					wait(0.25)
+					TPS:TeleportToPlaceInstance(placeId, server.id, Player)
+					return
+				end
+			end
+
+			MakeNotif(
+				"PathfindGens",
+				"No suitable server found, retrying... (" .. attempt .. "/" .. maxRetries .. ")",
+				5,
+				Color3.fromRGB(255, 0, 0)
+			)
+			wait(2)
+		else
+			MakeNotif(
+				"PathfindGens",
+				"Failed to get server list, retrying... (" .. attempt .. "/" .. maxRetries .. ")",
+				5,
+				Color3.fromRGB(255, 0, 0)
+			)
+			wait(2)
+		end
+	end
+
+	MakeNotif(
+		"PathfindGens",
+		"Failed to teleport after " .. maxRetries .. " attempts.",
+		5,
+		Color3.fromRGB(255, 0, 0)
+	)
 end
 
 local function findGenerators()
