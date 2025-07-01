@@ -449,10 +449,10 @@ local function TeleportNearGenerator(generator)
 	local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
 	local genPivot = generator:GetPivot()
 	local directions = {
-		genPivot.LookVector,      -- Forward
-		-genPivot.LookVector,     -- Backward
-		genPivot.RightVector,     -- Right
-		-genPivot.RightVector,    -- Left
+		genPivot.LookVector,
+		-genPivot.LookVector,
+		genPivot.RightVector,
+		-genPivot.RightVector,
 	}
 
 	-- Shuffle directions for randomness
@@ -462,7 +462,7 @@ local function TeleportNearGenerator(generator)
 	end
 
 	for _, dir in ipairs(directions) do
-		local distance = math.random(2, 5) -- randomize distance from 2 to 5 studs
+		local distance = math.random(20, 30) -- teleport 20-30 studs away
 		local targetPos = genPivot.Position + dir * distance
 		if IsPositionClear(genPivot.Position, targetPos) then
 			rootPart.CFrame = CFrame.new(targetPos)
@@ -470,11 +470,38 @@ local function TeleportNearGenerator(generator)
 		end
 	end
 
-	-- If all positions are blocked, TP to a random spot near the generator
+	-- Fallback: random direction
 	local randomDir = directions[math.random(1, #directions)]
-	local randomDist = math.random(2, 5)
+	local randomDist = math.random(20, 30)
 	rootPart.CFrame = CFrame.new(genPivot.Position + randomDir * randomDist)
 	return true
+end
+
+local function WalkToGenerator(generator)
+	local character = Players.LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local genPos = generator:GetPivot().Position
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		AgentJumpHeight = 7,
+		AgentMaxSlope = 45,
+	})
+	path:ComputeAsync(character.HumanoidRootPart.Position, genPos)
+	if path.Status == Enum.PathStatus.Complete then
+		for _, waypoint in ipairs(path:GetWaypoints()) do
+			humanoid:MoveTo(waypoint.Position)
+			humanoid.MoveToFinished:Wait()
+		end
+	else
+		-- fallback: simple MoveTo
+		humanoid:MoveTo(genPos)
+		humanoid.MoveToFinished:Wait()
+	end
 end
 
 -- Replace DoAllGenerators pathfinding with smart TP
@@ -489,6 +516,7 @@ local function DoAllGenerators()
 			pathStarted = TeleportNearGenerator(g)
 			if pathStarted then
 				task.wait(0.5)
+				WalkToGenerator(g)
 				local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
 				if prompt then
 					fireproximityprompt(prompt)
