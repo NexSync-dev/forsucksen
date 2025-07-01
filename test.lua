@@ -550,8 +550,11 @@ local function DoAllGenerators()
 					end
 				end
 				if alreadyClose then
-					fireproximityprompt(prompt)
-					task.wait(0.3)
+					print("Already close to generator, firing prompt...")
+					for i = 1, 3 do
+						fireproximityprompt(prompt)
+						task.wait(0.2)
+					end
 				else
 					-- Try up to 4 positions around the generator
 					local positions = {
@@ -564,9 +567,12 @@ local function DoAllGenerators()
 					for i, pos in ipairs(positions) do
 						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
 						task.wait(0.3)
-						fireproximityprompt(prompt)
-						task.wait(0.3)
-						if InGenerator() then
+						for j = 1, 3 do
+							fireproximityprompt(prompt)
+							task.wait(0.2)
+						end
+						-- Optionally, check if prompt.Enabled is false (meaning it was triggered)
+						if not prompt.Enabled then
 							found = true
 							break
 						end
@@ -575,7 +581,10 @@ local function DoAllGenerators()
 						-- fallback: try at the generator's center
 						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(genPivot.Position)
 						task.wait(0.3)
-						fireproximityprompt(prompt)
+						for i = 1, 3 do
+							fireproximityprompt(prompt)
+							task.wait(0.2)
+						end
 					end
 				end
 			end
