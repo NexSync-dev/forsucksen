@@ -795,6 +795,7 @@ function GoInvisible(speaker)
 end
 
 function TurnVisible()
+    print("TurnVisible called")
     if IsInvis == false then return end
     if invisFix then invisFix:Disconnect() end
     if invisDied then invisDied:Disconnect() end
@@ -813,6 +814,7 @@ function TurnVisible()
         invisDied:Disconnect()
     end)
     invisRunning = false
+    print("TurnVisible finished, invisRunning:", invisRunning, "IsInvis:", IsInvis)
 end
 
 task.spawn(function()
