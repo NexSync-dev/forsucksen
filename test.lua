@@ -839,7 +839,6 @@ task.spawn(function()
                 local hrp = killerModel:FindFirstChild("HumanoidRootPart")
                 if hrp then
                     local dist = (myRoot.Position - hrp.Position).Magnitude
-                    -- Debug print
                     print("Killer", killerModel.Name, "distance:", dist)
                     if dist <= 10 then
                         killerClose = true
@@ -849,13 +848,14 @@ task.spawn(function()
             end
         end
 
+        print("killerClose:", killerClose, "invisRunning:", invisRunning, "IsInvis:", IsInvis)
         if killerClose then
-            if not invisRunning then
+            if not invisRunning and not IsInvis then
                 print("Turning invisible: killer is close")
                 GoInvisible(game.Players.LocalPlayer)
             end
         else
-            if invisRunning then
+            if invisRunning or IsInvis then
                 print("Turning visible: killer is far")
                 TurnVisible()
             end
