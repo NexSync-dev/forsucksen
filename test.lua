@@ -792,8 +792,10 @@ function GoInvisible(speaker)
     InvisibleCharacter.HumanoidRootPart.CFrame = CF_1
     Player.Character = InvisibleCharacter
     -- execCmd('fixcam') -- If you want to keep this, make sure fixcam is defined
-    Player.Character.Animate.Disabled = true
-    Player.Character.Animate.Disabled = false
+    if Player.Character:FindFirstChild("Animate") then
+        Player.Character.Animate.Disabled = true
+        Player.Character.Animate.Disabled = false
+    end
 
     notify('Invisible','You now appear invisible to other players')
 end
@@ -813,8 +815,10 @@ function TurnVisible()
     Player.Character = Character
     Character.Parent = workspace
     IsInvis = false
-    Player.Character.Animate.Disabled = true
-    Player.Character.Animate.Disabled = false
+    if Player.Character:FindFirstChild("Animate") then
+        Player.Character.Animate.Disabled = true
+        Player.Character.Animate.Disabled = false
+    end
     invisDied = Character:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
         Respawn()
         invisDied:Disconnect()
