@@ -460,8 +460,10 @@ local function PathFinding(generator)
 
 	local path = game:GetService("PathfindingService"):CreatePath({
 		AgentRadius = 2.5,
-		AgentHeight = 1,
+		AgentHeight = 6,
 		AgentCanJump = false,
+		AgentJumpHeight = 0,
+		AgentStepHeight = 2,
 	})
 
 	local success, errorMessage = pcall(function()
