@@ -1,5 +1,3 @@
-wait() until game:loaded then
-
 if getgenv and tonumber(getgenv().LoadTime) then
 	task.wait(tonumber(getgenv().LoadTime))
 else
@@ -18,20 +16,17 @@ local HttpService = game:GetService("HttpService")
 local DCWebhook = (getgenv and getgenv().DiscordWebhook) or false
 local GenTime = tonumber(getgenv and getgenv().GeneratorTime) or 2.5
 
+local queueteleport = syn and syn.queue_on_teleport or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
+if queueteleport then
+	queueteleport([[
+        if getgenv then getgenv().DiscordWebhook = "]] .. tostring(DCWebhook) .. [[" end
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/NexSync-dev/forsucksen/refs/heads/main/test.lua'))()
+    ]])
+end
+
 local Nnnnnnotificvationui
 local AliveNotificaiotna = {}
 local ProfilePicture = ""
-
-local initialSpawnPosition = nil
-
-pcall(function()
-	local char = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
-	local root = char:FindFirstChild("HumanoidRootPart")
-	if root then
-		initialSpawnPosition = root.Position
-		print("[forsaken.lua] Initial spawn position set to:", initialSpawnPosition)
-	end
-end)
 
 if DCWebhook == "" then
 	DCWebhook = false
@@ -278,70 +273,66 @@ pcall(function()
 	Controller:Disable()
 end)
 
-local function teleportToSmallestServer(maxRetries)
-	local Api = "https://games.roblox.com/v1/games/"
-	local placeId = game.PlaceId
-	local url = Api .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-	local Http = game:GetService("HttpService")
-	local TPS = game:GetService("TeleportService")
-	local Player = game.Players.LocalPlayer
-	local currentJobId = game.JobId
+local function teleportToRandomServer()
+	local Counter = 0
+	local MaxRetry = 10
+	local RetryingDelays = 10
 
-	maxRetries = maxRetries or 5
+	local Request = http_request or syn.request or request
+	if Request then
+		local url = "https://games.roblox.com/v1/games/18687417158/servers/Public?sortOrder=Asc&limit=100"
 
-	local function fetchServerList()
-		return Http:JSONDecode(game:HttpGet(url))
-	end
+		while Counter < MaxRetry do
+			local success, response = pcall(function()
+				return Request({
+					Url = url,
+					Method = "GET",
+					Headers = { ["Content-Type"] = "application/json" },
+				})
+			end)
 
-	local function sortByPlayerCount(a, b)
-		return a.playing < b.playing
-	end
-
-	for attempt = 1, maxRetries do
-		local success, result = pcall(fetchServerList)
-
-		if success and result and result.data and #result.data > 0 then
-			table.sort(result.data, sortByPlayerCount)
-
-			for _, server in ipairs(result.data) do
-				if server.id ~= currentJobId and server.playing < server.maxPlayers then
-					MakeNotif(
-						"Teleporting...",
-						"Attempting to teleport to server: " .. server.id .. " (" .. server.playing .. "/" .. server.maxPlayers .. ")",
-						5,
-						Color3.fromRGB(115, 194, 89)
-					)
-					wait(0.25)
-					TPS:TeleportToPlaceInstance(placeId, server.id, Player)
-					return
+			if success and response and response.Body then
+				local data = HttpService:JSONDecode(response.Body)
+				if data and data.data and #data.data > 0 then
+					local server = data.data[math.random(1, #data.data)]
+					if server.id then
+						MakeNotif(
+							"Teleporting...",
+							"Attempting to teleport to server: " .. server.id,
+							5,
+							Color3.fromRGB(115, 194, 89)
+						)
+						task.wait(0.25)
+						TeleportService:TeleportToPlaceInstance(18687417158, server.id, Players.LocalPlayer)
+						return
+					end
 				end
 			end
 
+			Counter = Counter + 1
 			MakeNotif(
 				"PathfindGens",
-				"No suitable server found, retrying... (" .. attempt .. "/" .. maxRetries .. ")",
+				"Retrying to get a server... Attempt " .. Counter .. "/" .. MaxRetry,
 				5,
 				Color3.fromRGB(255, 0, 0)
 			)
-			wait(2)
-		else
-			MakeNotif(
-				"PathfindGens",
-				"Failed to get server list, retrying... (" .. attempt .. "/" .. maxRetries .. ")",
-				5,
-				Color3.fromRGB(255, 0, 0)
-			)
-			wait(2)
+			task.wait(RetryingDelays)
 		end
 	end
-
-	MakeNotif(
-		"PathfindGens",
-		"Failed to teleport after " .. maxRetries .. " attempts.",
-		5,
-		Color3.fromRGB(255, 0, 0)
-	)
 end
+
+task.delay(2.5, function()
+	pcall(function()
+		local timer = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main.Time.ContentText
+		local minutes, seconds = timer:match("(%d+):(%d+)")
+		local totalSeconds = tonumber(minutes) * 60 + tonumber(seconds)
+		print(totalSeconds .. " Left till round end.")
+		MakeNotif("PathfindGens", "Round ends in " .. totalSeconds .. " seconds.", 5, Color3.fromRGB(115, 194, 89))
+		if totalSeconds > 90 then
+			teleportToRandomServer()
+		end
+	end)
+end)
 
 local function findGenerators()
 	local folder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame")
@@ -398,6 +389,7 @@ local function VisualizePivot(model)
 	end
 end
 
+
 local function InGenerator()
 	for i, v in ipairs(game:GetService("Players").LocalPlayer.PlayerGui.TemporaryUI:GetChildren()) do
 		print(v.Name)
@@ -407,78 +399,6 @@ local function InGenerator()
 		end
 	end
 	print("didnt find frame")
-	return true
-end
-
-local function IsPositionClear(fromPosition, toPosition)
-	local characterSize = Vector3.new(2, 4, 2) -- Approximate player size (width, height, depth)
-	local offsets = {
-		Vector3.new(0, 0, 0), -- center
-		Vector3.new(characterSize.X/2, 0, 0), -- right
-		Vector3.new(-characterSize.X/2, 0, 0), -- left
-		Vector3.new(0, 0, characterSize.Z/2), -- front
-		Vector3.new(0, 0, -characterSize.Z/2), -- back
-	}
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterDescendantsInstances = {Players.LocalPlayer.Character}
-	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-	raycastParams.IgnoreWater = true
-
-	for _, offset in ipairs(offsets) do
-		local start = fromPosition + offset
-		local finish = toPosition + offset
-		local direction = finish - start
-		local result = workspace:Raycast(start, direction, raycastParams)
-		if result then
-			return false
-		end
-	end
-
-	-- Check for floor at the target position
-	local floorRay = workspace:Raycast(toPosition + Vector3.new(0, 2, 0), Vector3.new(0, -6, 0), raycastParams)
-	if not floorRay then
-		return false
-	end
-
-	-- Check that the position is not below the map (e.g., y > 2)
-	if toPosition.Y < 2 then
-		return false
-	end
-	return true
-end
-
-local function TeleportNearGenerator(generator)
-	if not generator or not generator.Parent then return false end
-	if not Players.LocalPlayer.Character or not Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return false end
-
-	local rootPart = Players.LocalPlayer.Character.HumanoidRootPart
-	local genPivot = generator:GetPivot()
-	local directions = {
-		genPivot.LookVector,      -- Forward
-		-genPivot.LookVector,     -- Backward
-		genPivot.RightVector,     -- Right
-		-genPivot.RightVector,    -- Left
-	}
-
-	-- Shuffle directions for randomness
-	for i = #directions, 2, -1 do
-		local j = math.random(i)
-		directions[i], directions[j] = directions[j], directions[i]
-	end
-
-	for _, dir in ipairs(directions) do
-		local distance = math.random(2, 5) -- randomize distance from 2 to 5 studs
-		local targetPos = genPivot.Position + dir * distance
-		if IsPositionClear(genPivot.Position, targetPos) then
-			rootPart.CFrame = CFrame.new(targetPos)
-			return true
-		end
-	end
-
-	-- If all positions are blocked, TP to a random spot near the generator
-	local randomDir = directions[math.random(1, #directions)]
-	local randomDist = math.random(2, 5)
-	rootPart.CFrame = CFrame.new(genPivot.Position + randomDir * randomDist)
 	return true
 end
 
@@ -540,8 +460,10 @@ local function PathFinding(generator)
 
 	local path = game:GetService("PathfindingService"):CreatePath({
 		AgentRadius = 2.5,
-		AgentHeight = 1,
+		AgentHeight = 6,
 		AgentCanJump = false,
+		AgentJumpHeight = 0,
+		AgentStepHeight = 2,
 	})
 
 	local success, errorMessage = pcall(function()
@@ -575,10 +497,7 @@ local function PathFinding(generator)
 		end
 
 		if not reachedWaypoint then
-			local char = game:GetService("Players").LocalPlayer.Character
-			local speedMultipliers = char and char:FindFirstChild("SpeedMultipliers")
-			local sprinting = speedMultipliers and speedMultipliers:FindFirstChild("Sprinting")
-			if sprinting and sprinting.Value < 1.1 then
+			if game:GetService("Players").LocalPlayer.Character:FindFirstChild("SpeedMultipliers"):FindFirstChild("Sprinting").Value < 1.1 then
 				VIMVIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
 			end
 			return false
@@ -596,30 +515,48 @@ local function DoAllGenerators()
 	for _, g in ipairs(findGenerators()) do
 		local pathStarted = false
 		for attempt = 1, 3 do
+			-- dont need cuz im sigma mafiza boy
+			-- local playersNearby = false
+			-- for _, player in ipairs(Players:GetPlayers()) do
+			-- 	if player ~= Players.LocalPlayer and player:DistanceFromCharacter(g:GetPivot().Position) <= 25 then
+			-- 		playersNearby = true
+			-- 		break
+			-- 	end
+			-- end
+
 			if (Players.LocalPlayer.Character:GetPivot().Position - g:GetPivot().Position).Magnitude > 500 then
 				break
 			end
 
-			pathStarted = TeleportNearGenerator(g)
+			-- if not playersNearby and g:FindFirstChild("Progress") and g.Progress.Value < 100 then
+			-- g:GetPivot()
+			-- end
+
+			pathStarted = PathFinding(g)
 			if pathStarted then
+				break
+			else
+				task.wait(1)
+			end
+		end
+		if pathStarted then
+			task.wait(0.5)
+			local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
+			if prompt then
+				fireproximityprompt(prompt)
 				task.wait(0.5)
-				local prompt = g:FindFirstChild("Main") and g.Main:FindFirstChild("Prompt")
-				if prompt then
-					fireproximityprompt(prompt)
-					task.wait(0.5)
-					if not InGenerator() then
-						local positions = {
-							g:GetPivot().Position - g:GetPivot().RightVector * 3,
-							g:GetPivot().Position + g:GetPivot().RightVector * 3,
-						}
-						for i, pos in ipairs(positions) do
-							print("Trying position", i)
-							Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-							task.wait(0.25)
-							fireproximityprompt(prompt)
-							if InGenerator() then
-								break
-							end
+				if not InGenerator() then
+					local positions = {
+						g:GetPivot().Position - g:GetPivot().RightVector * 3,
+						g:GetPivot().Position + g:GetPivot().RightVector * 3,
+					}
+					for i, pos in ipairs(positions) do
+						print("Trying position", i)
+						Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+						task.wait(0.25)
+						fireproximityprompt(prompt)
+						if InGenerator() then
+							break
 						end
 					end
 				end
@@ -632,8 +569,7 @@ local function DoAllGenerators()
 					task.wait(GenTime)
 				end
 			end
-		end
-		if not pathStarted then
+		else
 			return
 		end
 	end
@@ -657,39 +593,17 @@ local function DoAllGenerators()
 		".gg/fartsaken | <3"
 	)
 	task.wait(1)
-	TeleportToRandomServer()
+	teleportToRandomServer()
 end
 
 local function AmIInGameYet()
 	workspace.Players.Survivors.ChildAdded:Connect(function(child)
 		task.wait(1)
 		if child == game:GetService("Players").LocalPlayer.Character then
-			-- Check if we are the killer
-			local player = Players.LocalPlayer
-			if player.Team and player.Team.Name == "Killer" then
-				-- Say message in chat
-				local chatEvent = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
-				if chatEvent and chatEvent:FindFirstChild("SayMessageRequest") then
-					chatEvent.SayMessageRequest:FireServer("no ion wanna be killer now", "All")
-				end
-				-- Reset character
-				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-				if humanoid then
-					humanoid.Health = 0
-				end
-				return
-			end
-			-- Save initial spawn position
-			local rootPart = child:FindFirstChild("HumanoidRootPart")
-			if rootPart then
-				initialSpawnPosition = rootPart.Position
-			end
-			task.wait(3)
+			task.wait(4)
 			DoAllGenerators()
 		end
 	end)
-
-	task.spawn(TeleportIfKillerClose)
 end
 
 local function DidiDie()
@@ -717,7 +631,7 @@ local function DidiDie()
 					".gg/fartsaken | <3"
 				)
 				task.wait(0.5)
-				TeleportToRandomServer()
+				teleportToRandomServer()
 				break
 			end
 		end
@@ -727,30 +641,247 @@ end
 pcall(task.spawn(DidiDie))
 AmIInGameYet()
 
-local function TeleportIfKillerClose()
-	while true do
-		task.wait(0.2)
-		local localPlayer = Players.LocalPlayer
-		local myChar = localPlayer.Character
-		if not myChar or not myChar:FindFirstChild("HumanoidRootPart") or not initialSpawnPosition then
-			-- skip this iteration
-		else
-			for _, player in ipairs(Players:GetPlayers()) do
-				if player ~= localPlayer and player.Team and player.Team.Name == "Killer" then
-					local killerChar = player.Character
-					if killerChar and killerChar:FindFirstChild("HumanoidRootPart") then
-						local dist = (myChar.HumanoidRootPart.Position - killerChar.HumanoidRootPart.Position).Magnitude
-						print("Killer distance:", dist)
-						if dist < 20 and myChar:FindFirstChildOfClass("Humanoid").Health > 0 then
-							print("Killer too close! Teleporting to spawn.")
-							myChar.HumanoidRootPart.CFrame = CFrame.new(initialSpawnPosition)
-							break
-						end
-					end
-				end
-			end
-		end
-	end
+local function SetSpeed(multiplier)
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid")
+    if humanoid then
+        local baseSpeed = humanoid.WalkSpeed or 16
+        humanoid.WalkSpeed = baseSpeed * multiplier
+    end
+    if char:FindFirstChild("SpeedMultipliers") then
+        local sprinting = char.SpeedMultipliers:FindFirstChild("Sprinting")
+        if sprinting then
+            sprinting.Value = multiplier
+        end
+    end
 end
 
+local desiredSprintMultiplier = 4
+
+local function AutoSprint()
+    while true do
+        local player = game.Players.LocalPlayer
+        local char = player.Character
+        if char and char:FindFirstChild("SpeedMultipliers") then
+            local sprinting = char.SpeedMultipliers:FindFirstChild("Sprinting")
+            if sprinting and sprinting.Value ~= desiredSprintMultiplier then
+                sprinting.Value = desiredSprintMultiplier
+            end
+        end
+        task.wait(0.1)
+    end
 end
+
+pcall(function()
+    task.spawn(AutoSprint)
+end)
+
+SetSpeed(desiredSprintMultiplier)
+
+local function GetKillerPosition()
+    local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersGroup then
+        for _, killerModel in ipairs(killersGroup:GetChildren()) do
+            local hrp = killerModel:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                return hrp.Position, killerModel
+            end
+        end
+    end
+    return nil, nil
+end
+
+local invisRunning = false
+local IsInvis = false
+local IsRunning = true
+local InvisibleCharacter, Character, Player, invisFix, invisDied, Void, CF
+local lastPosition = nil
+
+function GoInvisible(speaker)
+    if invisRunning then return end
+    invisRunning = true
+    Player = speaker
+    repeat wait(.1) until Player.Character
+    Character = Player.Character
+    Character.Archivable = true
+    IsInvis = false
+    IsRunning = true
+    InvisibleCharacter = Character:Clone()
+    InvisibleCharacter.Parent = game:GetService("Lighting")
+    Void = workspace.FallenPartsDestroyHeight
+    InvisibleCharacter.Name = ""
+    local CF
+
+    invisFix = game:GetService("RunService").Stepped:Connect(function()
+        pcall(function()
+            local IsInteger
+            if tostring(Void):find'-' then
+                IsInteger = true
+            else
+                IsInteger = false
+            end
+            local Pos = Player.Character.HumanoidRootPart.Position
+            local Pos_String = tostring(Pos)
+            local Pos_Seperate = Pos_String:split(', ')
+            local X = tonumber(Pos_Seperate[1])
+            local Y = tonumber(Pos_Seperate[2])
+            local Z = tonumber(Pos_Seperate[3])
+            if IsInteger == true then
+                if Y <= Void then
+                    Respawn()
+                end
+            elseif IsInteger == false then
+                if Y >= Void then
+                    Respawn()
+                end
+            end
+        end)
+    end)
+
+    for i,v in pairs(InvisibleCharacter:GetDescendants())do
+        if v:IsA("BasePart") then
+            if v.Name == "HumanoidRootPart" then
+                v.Transparency = 1
+            else
+                v.Transparency = .5
+            end
+        end
+    end
+
+    function Respawn()
+        IsRunning = false
+        if IsInvis == true then
+            pcall(function()
+                Player.Character = Character
+                wait()
+                Character.Parent = workspace
+                Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+                IsInvis = false
+                InvisibleCharacter.Parent = nil
+                invisRunning = false
+            end)
+        elseif IsInvis == false then
+            pcall(function()
+                Player.Character = Character
+                wait()
+                Character.Parent = workspace
+                Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+                TurnVisible()
+            end)
+        end
+    end
+
+    invisDied = InvisibleCharacter:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
+        Respawn()
+        invisDied:Disconnect()
+    end)
+
+    if IsInvis == true then return end
+    IsInvis = true
+    CF = workspace.CurrentCamera.CFrame
+    local CF_1 = Player.Character.HumanoidRootPart.CFrame
+    lastPosition = Player.Character.HumanoidRootPart.CFrame
+    Character:MoveTo(Vector3.new(0, math.pi*1000000, 0))
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+    wait(.2)
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+    InvisibleCharacter = InvisibleCharacter
+    Character.Parent = game:GetService("Lighting")
+    InvisibleCharacter.Parent = workspace
+    InvisibleCharacter.HumanoidRootPart.CFrame = CF_1
+    Player.Character = InvisibleCharacter
+    -- execCmd('fixcam') -- If you want to keep this, make sure fixcam is defined
+    if Player.Character:FindFirstChild("Animate") then
+        Player.Character.Animate.Disabled = true
+        Player.Character.Animate.Disabled = false
+    end
+
+    notify('Invisible','You now appear invisible to other players')
+end
+
+function TurnVisible()
+    print("TurnVisible called")
+    if IsInvis == false then return end
+    if invisFix then invisFix:Disconnect() end
+    if invisDied then invisDied:Disconnect() end
+    CF = workspace.CurrentCamera.CFrame
+    Character = Character
+    local CF_1 = Player.Character.HumanoidRootPart.CFrame
+    if lastPosition then
+        Character.HumanoidRootPart.CFrame = lastPosition
+    end
+    if InvisibleCharacter then InvisibleCharacter:Destroy() end
+    Player.Character = Character
+    Character.Parent = workspace
+    IsInvis = false
+    if Player.Character:FindFirstChild("Animate") then
+        Player.Character.Animate.Disabled = true
+        Player.Character.Animate.Disabled = false
+    end
+    invisDied = Character:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
+        Respawn()
+        invisDied:Disconnect()
+    end)
+    invisRunning = false
+    print("TurnVisible finished, invisRunning:", invisRunning, "IsInvis:", IsInvis)
+end
+
+local roundStartTime = tick()
+task.spawn(function()
+    while true do
+        if tick() - roundStartTime >= 5 then -- 5 seconds grace period
+            local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+            local myChar = nil
+            for _, c in ipairs(game.Players.LocalPlayer:GetChildren()) do
+                if c:IsA("Model") and c:FindFirstChild("HumanoidRootPart") and c.Parent == workspace then
+                    myChar = c
+                    break
+                end
+            end
+            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local killerClose = false
+
+            if killersGroup and myRoot then
+                for _, killerModel in ipairs(killersGroup:GetChildren()) do
+                    local hrp = killerModel:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local dist = (myRoot.Position - hrp.Position).Magnitude
+                        print("Killer", killerModel.Name, "distance:", dist)
+                        if dist <= 10 then
+                            killerClose = true
+                            break
+                        end
+                    end
+                end
+            end
+
+            print("killerClose:", killerClose, "invisRunning:", invisRunning, "IsInvis:", IsInvis)
+            if killerClose then
+                if not invisRunning and not IsInvis then
+                    print("Turning invisible: killer is close")
+                    GoInvisible(game.Players.LocalPlayer)
+                end
+            else
+                if invisRunning or IsInvis then
+                    print("Turning visible: killer is far")
+                    TurnVisible()
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+-- Fire 'UseActorAbility' with 'Ghostburger' every 2 seconds when in game
+task.spawn(function()
+    local Event = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
+    while true do
+        pcall(function()
+            if game.Players.LocalPlayer and game.Players.LocalPlayer.Character and workspace:FindFirstChild(game.Players.LocalPlayer.Name) then
+                Event:FireServer("UseActorAbility", "Ghostburger")
+            end
+        end)
+        task.wait(2)
+    end
+end)
