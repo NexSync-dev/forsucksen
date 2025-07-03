@@ -559,13 +559,22 @@ local function PathFinding(generator)
 				humanoid.JumpHeight = 7.2
 			end)
 			humanoid.Jump = true
-			MakeNotif("PathfindGens", "Stuck at waypoint, forcing jump and retrying pathfinding (attempt "..(attempt+1)..")", 3, Color3.fromRGB(255, 200, 0))
+			MakeNotif("Pathfind shit is stuck", "Stuck at waypoint, forcing jump and retrying pathfinding (attempt "..(attempt+1)..")", 3, Color3.fromRGB(255, 200, 0))
 			task.wait(0.5)
 		end
 	end
 
 	for _, node in ipairs(activeNodes) do
 		node:Destroy()
+	end
+
+	-- Teleport 4 studs away from the generator if stuck
+	if generator and generator.Parent and Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local genPos = generator:GetPivot().Position
+		local offset = generator:GetPivot().LookVector * 4 -- 4 studs in front of the generator
+		local newPos = genPos + offset
+		Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(newPos)
+		MakeNotif("Anti-Stuck", "Teleported 4 studs away from generator!", 3, Color3.fromRGB(255, 200, 0))
 	end
 
 	return false
