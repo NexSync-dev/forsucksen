@@ -110,11 +110,26 @@ end
 
 -- Only run if we are the killer
 local function isKiller()
-    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-    if killersFolder then
-        for _, char in ipairs(killersFolder:GetChildren()) do
-            if char:IsA("Model") and char.Name == LocalPlayer.Name then
-                return true
+    local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersGroup then
+        for _, killerModel in ipairs(killersGroup:GetChildren()) do
+            -- Check if this killer model is controlled by the local player
+            -- This works if the killer's model is named after the player, or if the model contains a Player value
+            if killerModel:IsA("Model") and killerModel:FindFirstChild("HumanoidRootPart") then
+                -- Try by name
+                if killerModel.Name == LocalPlayer.Name then
+                    return true
+                end
+                -- Try by Player value (if exists)
+                local playerValue = killerModel:FindFirstChild("Player")
+                if playerValue and playerValue.Value == LocalPlayer then
+                    return true
+                end
+                -- Try by checking for a Humanoid and matching UserId (if applicable)
+                local humanoid = killerModel:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Parent and humanoid.Parent.Name == LocalPlayer.Name then
+                    return true
+                end
             end
         end
     end
