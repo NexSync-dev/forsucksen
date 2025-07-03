@@ -878,7 +878,7 @@ task.spawn(function()
     local Event = game:GetService("ReplicatedStorage").Modules.Network.RemoteEvent
     while true do
         pcall(function()
-            if game.Players.LocalPlayer and game.Players.LocalPlayer.Character and workspace:FindFirstChild(game.Players.LocalPlayer.Name) then
+            if game.Players.LocalPlayer and game.Players.LocalPlayer.Character then
                 Event:FireServer("UseActorAbility", "Ghostburger")
             end
         end)
