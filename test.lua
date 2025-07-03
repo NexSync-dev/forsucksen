@@ -832,7 +832,13 @@ task.spawn(function()
     while true do
         if tick() - roundStartTime >= 5 then -- 5 seconds grace period
             local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-            local myChar = game.Players.LocalPlayer.Character
+            local myChar = nil
+            for _, c in ipairs(game.Players.LocalPlayer:GetChildren()) do
+                if c:IsA("Model") and c:FindFirstChild("HumanoidRootPart") and c.Parent == workspace then
+                    myChar = c
+                    break
+                end
+            end
             local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
             local killerClose = false
 
