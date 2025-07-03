@@ -827,40 +827,42 @@ function TurnVisible()
     print("TurnVisible finished, invisRunning:", invisRunning, "IsInvis:", IsInvis)
 end
 
+local roundStartTime = tick()
 task.spawn(function()
     while true do
-        local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-        local myChar = game.Players.LocalPlayer.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        local killerClose = false
+        if tick() - roundStartTime >= 5 then -- 5 seconds grace period
+            local killersGroup = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+            local myChar = game.Players.LocalPlayer.Character
+            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local killerClose = false
 
-        if killersGroup and myRoot then
-            for _, killerModel in ipairs(killersGroup:GetChildren()) do
-                local hrp = killerModel:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local dist = (myRoot.Position - hrp.Position).Magnitude
-                    print("Killer", killerModel.Name, "distance:", dist)
-                    if dist <= 10 then
-                        killerClose = true
-                        break
+            if killersGroup and myRoot then
+                for _, killerModel in ipairs(killersGroup:GetChildren()) do
+                    local hrp = killerModel:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local dist = (myRoot.Position - hrp.Position).Magnitude
+                        print("Killer", killerModel.Name, "distance:", dist)
+                        if dist <= 10 then
+                            killerClose = true
+                            break
+                        end
                     end
                 end
             end
-        end
 
-        print("killerClose:", killerClose, "invisRunning:", invisRunning, "IsInvis:", IsInvis)
-        if killerClose then
-            if not invisRunning and not IsInvis then
-                print("Turning invisible: killer is close")
-                GoInvisible(game.Players.LocalPlayer)
-            end
-        else
-            if invisRunning or IsInvis then
-                print("Turning visible: killer is far")
-                TurnVisible()
+            print("killerClose:", killerClose, "invisRunning:", invisRunning, "IsInvis:", IsInvis)
+            if killerClose then
+                if not invisRunning and not IsInvis then
+                    print("Turning invisible: killer is close")
+                    GoInvisible(game.Players.LocalPlayer)
+                end
+            else
+                if invisRunning or IsInvis then
+                    print("Turning visible: killer is far")
+                    TurnVisible()
+                end
             end
         end
-
         task.wait(0.1)
     end
 end)
