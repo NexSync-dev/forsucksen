@@ -552,7 +552,12 @@ local function PathFinding(generator)
 			end
 			return true
 		elseif stuckPos and humanoid then
-			-- force jump if stuck
+			-- force enable jumping if stuck
+			pcall(function()
+				humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+				humanoid.JumpPower = 50
+				humanoid.JumpHeight = 7.2
+			end)
 			humanoid.Jump = true
 			MakeNotif("PathfindGens", "Stuck at waypoint, forcing jump and retrying pathfinding (attempt "..(attempt+1)..")", 3, Color3.fromRGB(255, 200, 0))
 			task.wait(0.5)
@@ -701,6 +706,12 @@ local function SetSpeed(multiplier)
     local char = player.Character or player.CharacterAdded:Wait()
     local humanoid = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid")
     if humanoid then
+        -- Force enable jumping
+        pcall(function()
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+            humanoid.JumpPower = 50
+            humanoid.JumpHeight = 7.2
+        end)
         local baseSpeed = humanoid.WalkSpeed or 16
         humanoid.WalkSpeed = baseSpeed * multiplier
     end
