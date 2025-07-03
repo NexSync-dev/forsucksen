@@ -493,49 +493,69 @@ local function PathFinding(generator)
 
 	VisualizePivot(generator)
 
-	local path = game:GetService("PathfindingService"):CreatePath({
-		AgentRadius = 2.5,
-		AgentHeight = 6,
-		AgentCanJump = false,
-		AgentJumpHeight = 0,
-		AgentStepHeight = 2,
-	})
+	local function computeAndFollowPath()
+		local path = game:GetService("PathfindingService"):CreatePath({
+			AgentRadius = 2.5,
+			AgentHeight = 6,
+			AgentCanJump = true, -- allow jumping
+			AgentJumpHeight = 10, -- reasonable jump height
+			AgentStepHeight = 2,
+		})
 
-	local success, errorMessage = pcall(function()
-		path:ComputeAsync(rootPart.Position, targetPosition)
-	end)
+		local success, errorMessage = pcall(function()
+			path:ComputeAsync(rootPart.Position, targetPosition)
+		end)
 
-	if not success or path.Status ~= Enum.PathStatus.Success then
-		print("Path computation failed:", errorMessage)
-		return false
-	end
-
-	local waypoints = path:GetWaypoints()
-
-	if #waypoints <= 1 then
-		return false
-	end
-
-	for i, waypoint in ipairs(waypoints) do
-		createNode(waypoint.Position)
-		humanoid:MoveTo(waypoint.Position)
-
-		local reachedWaypoint = false
-		local startTime = tick()
-		while not reachedWaypoint and tick() - startTime < 5 do
-			local distance = (rootPart.Position - waypoint.Position).Magnitude
-			if distance < 5 then
-				reachedWaypoint = true
-				break
-			end
-			RunService.Heartbeat:Wait()
+		if not success or path.Status ~= Enum.PathStatus.Success then
+			print("Path computation failed:", errorMessage)
+			return false
 		end
 
-		if not reachedWaypoint then
-			if game:GetService("Players").LocalPlayer.Character:FindFirstChild("SpeedMultipliers"):FindFirstChild("Sprinting").Value < 1.1 then
-				VIMVIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
-			end
+		local waypoints = path:GetWaypoints()
+
+		if #waypoints <= 1 then
 			return false
+		end
+
+		for i, waypoint in ipairs(waypoints) do
+			createNode(waypoint.Position)
+			humanoid:MoveTo(waypoint.Position)
+
+			local reachedWaypoint = false
+			local startTime = tick()
+			while not reachedWaypoint and tick() - startTime < 5 do
+				local distance = (rootPart.Position - waypoint.Position).Magnitude
+				if distance < 5 then
+					reachedWaypoint = true
+					break
+				end
+				RunService.Heartbeat:Wait()
+			end
+
+			if not reachedWaypoint then
+				if game:GetService("Players").LocalPlayer.Character:FindFirstChild("SpeedMultipliers"):FindFirstChild("Sprinting").Value < 1.1 then
+					VIMVIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, nil)
+				end
+				return false, waypoint.Position
+			end
+		end
+
+		return true
+	end
+
+	-- Try up to 2 times: if stuck, force jump and retry pathfinding
+	for attempt = 1, 2 do
+		local result, stuckPos = computeAndFollowPath()
+		if result then
+			for _, node in ipairs(activeNodes) do
+				node:Destroy()
+			end
+			return true
+		elseif stuckPos and humanoid then
+			-- force jump if stuck
+			humanoid.Jump = true
+			MakeNotif("PathfindGens", "Stuck at waypoint, forcing jump and retrying pathfinding (attempt "..(attempt+1)..")", 3, Color3.fromRGB(255, 200, 0))
+			task.wait(0.5)
 		end
 	end
 
@@ -543,7 +563,7 @@ local function PathFinding(generator)
 		node:Destroy()
 	end
 
-	return true
+	return false
 end
 
 local function DoAllGenerators()
