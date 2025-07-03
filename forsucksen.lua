@@ -1544,7 +1544,7 @@ local function SetSpeed(multiplier)
     end
 end
 
-local desiredSprintMultiplier = 8
+local desiredSprintMultiplier = 7
 
 local function AutoSprint()
     while true do
