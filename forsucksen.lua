@@ -293,46 +293,50 @@ local function teleportToRandomServer()
 				})
 			end)
 
+			local foundServer = false
+
 			if success and response and response.Body then
 				local data = HttpService:JSONDecode(response.Body)
 				if data and data.data and #data.data > 0 then
-					local server = data.data[math.random(1, #data.data)]
-					if server.id then
-						MakeNotif(
-							"Teleporting...",
-							"Attempting to teleport to server: " .. server.id,
-							5,
-							Color3.fromRGB(115, 194, 89)
-						)
-						task.wait(0.25)
+					for _, server in ipairs(data.data) do
+						if server.id then
+							foundServer = true
+							MakeNotif(
+								"Teleporting...",
+								"Attempting to teleport to server: " .. server.id,
+								5,
+								Color3.fromRGB(115, 194, 89)
+							)
+							task.wait(0.25)
 
-						local teleportSuccess = false
-						for teleportAttempt = 1, TeleportMaxRetry do
-							local teleSuccess, teleErr = pcall(function()
-								TeleportService:TeleportToPlaceInstance(18687417158, server.id, Players.LocalPlayer)
-							end)
-							if teleSuccess then
-								teleportSuccess = true
-								break
+							local teleportSuccess = false
+							for teleportAttempt = 1, TeleportMaxRetry do
+								local teleSuccess, teleErr = pcall(function()
+									TeleportService:TeleportToPlaceInstance(18687417158, server.id, Players.LocalPlayer)
+								end)
+								if teleSuccess then
+									teleportSuccess = true
+									break
+								else
+									MakeNotif(
+										"Teleport Failed",
+										"Teleport attempt " .. teleportAttempt .. "/" .. TeleportMaxRetry .. " failed. Retrying...",
+										2,
+										Color3.fromRGB(255, 0, 0)
+									)
+									task.wait(TeleportRetryDelay)
+								end
+							end
+							if teleportSuccess then
+								return
 							else
 								MakeNotif(
 									"Teleport Failed",
-									"Teleport attempt " .. teleportAttempt .. "/" .. TeleportMaxRetry .. " failed. Retrying...",
-									2,
+									"All teleport attempts failed for server: " .. server.id,
+									5,
 									Color3.fromRGB(255, 0, 0)
 								)
-								task.wait(TeleportRetryDelay)
 							end
-						end
-						if teleportSuccess then
-							return
-						else
-							MakeNotif(
-								"Teleport Failed",
-								"All teleport attempts failed for server: " .. server.id,
-								5,
-								Color3.fromRGB(255, 0, 0)
-							)
 						end
 					end
 				end
